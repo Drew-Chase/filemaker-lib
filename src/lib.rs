@@ -251,6 +251,61 @@ impl Filemaker {
         }
     }
 
+    
+    /// Adds a record to the database.
+    ///
+    /// # Parameters
+    /// - `field_data`: A `HashMap` representing the field data for the new record.
+    ///
+    /// # Returns
+    /// A `Result` containing the added record as a `Value` on success, or an error.
+    pub async fn add_record(
+        &self,
+        field_data: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>> {
+        // Define the URL for the FileMaker Data API endpoint
+        let url = format!(
+            "{}/databases/{}/layouts/{}/records",
+            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            self.database,
+            self.table
+        );
+
+        // Prepare the request body
+        let field_data_map: serde_json::Map<String, Value> = field_data.into_iter().collect();
+        let body = HashMap::from([("fieldData".to_string(), Value::Object(field_data_map))]);
+
+        debug!("Adding a new record. URL: {}. Body: {:?}", url, body);
+
+        // Make the API call
+        let response = self
+            .authenticated_request(
+                &url,
+                Method::POST,
+                Some(serde_json::to_value(body)?),
+            )
+            .await?;
+
+        if let Some(record_id) = response
+            .get("response")
+            .and_then(|r| r.get("recordId"))
+            .and_then(|id| id.as_u64())
+        {
+            debug!("Record added successfully. Record ID: {}", record_id);
+            let added_record = self.get_record_by_id(record_id as usize).await?;
+            Ok(HashMap::from([
+                ("success".to_string(), Value::Bool(true)),
+                ("result".to_string(), added_record),
+            ]))
+        } else {
+            error!("Failed to add the record: {:?}", response);
+            Ok(HashMap::from([
+                ("success".to_string(), Value::Bool(false)),
+                ("result".to_string(), response),
+            ]))
+        }
+    }
+    
     /// Updates a record in the database.
     pub async fn update_record(
         &self,
