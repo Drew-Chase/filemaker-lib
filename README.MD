@@ -4,16 +4,17 @@ This project is a Rust library (`filemaker-lib`) designed to interact with the F
 
 ## Features
 
-- **Database Interaction**: Fetch the list of available databases.
-- **Authentication**: Securely manage session tokens for interacting with the FileMaker Data API.
-- **Record Management**:
-    - Fetch records (paginated or all at once).
-    - Search for records based on custom queries and sorting criteria.
-    - Update specific records.
-    - Delete records from a database.
-- **Database Layouts**: Retrieve the layouts available in a given database.
-- **Database Clearing**: Delete all records within a database.
-- **Advanced Querying and Sorting**: Search with advanced queries and sort results in ascending or descending order.
+- **[Database Interaction](#fetching-databases)**: Fetch the list of available databases.
+- **[Authentication](#initialization)**: Securely manage session tokens for interacting with the FileMaker Data API.
+- **[Record Management](#record-management)**:
+  - [Fetch records](#fetching-records) (paginated or all at once).
+  - [Search for records](#searching-records) based on custom queries and sorting criteria.
+  - [Add single or multiple records](#adding-records).
+  - [Update specific records](#updating-records).
+  - [Delete records](#deleting-records) from a database.
+- **[Database Layouts](#fetching-available-layouts)**: Retrieve the layouts available in a given database.
+- **[Database Clearing](#clearing-the-database)**: Delete all records within a database.
+- **[Advanced Querying and Sorting](#searching-records)**: Search with advanced queries and sort results in ascending or descending order.
 - **Utility Functions**: Extract field names from records and encode database parameters safely.
 
 ## Installation
@@ -43,15 +44,15 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest"); // Replace with actual filemaker server url
-    let username = "your_username";
-    let password = "your_password";
-    let database = "your_database";
-    let table = "your_table";
+  std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest"); // Replace with actual FileMaker server URL
+  let username = "your_username";
+  let password = "your_password";
+  let database = "your_database";
+  let table = "your_table";
 
-    let filemaker = Filemaker::new(username, password, database, table).await?;
-    println!("Filemaker instance created successfully.");
-    Ok(())
+  let filemaker = Filemaker::new(username, password, database, table).await?;
+  println!("Filemaker instance created successfully.");
+  Ok(())
 }
 ```
 
@@ -69,6 +70,55 @@ Fetch all records at once:
 ```rust
 let all_records = filemaker.get_all_records().await?;
 println!("All Records: {:?}", all_records);
+```
+
+### Adding Records
+
+#### Adding a Single Record
+
+To add a single record to your FileMaker database:
+
+```rust
+use serde_json::Value;
+use std::collections::HashMap;
+
+let mut single_record_data = HashMap::new();
+single_record_data.insert("field_name1".to_string(), Value::String("Value 1".to_string()));
+single_record_data.insert("field_name2".to_string(), Value::String("Value 2".to_string()));
+
+let result = filemaker.add_record(single_record_data).await?;
+println!("Single record added: {:?}", result);
+```
+
+#### Adding Multiple Records
+
+To add multiple records to your FileMaker database:
+
+```rust
+use serde_json::Value;
+use std::collections::HashMap;
+
+let records = vec![
+  {
+    let mut record = HashMap::new();
+    record.insert("field_name1".to_string(), Value::String("First Record - Value 1".to_string()));
+    record.insert("field_name2".to_string(), Value::String("First Record - Value 2".to_string()));
+    record
+  },
+  {
+    let mut record = HashMap::new();
+    record.insert("field_name1".to_string(), Value::String("Second Record - Value 1".to_string()));
+    record.insert("field_name2".to_string(), Value::String("Second Record - Value 2".to_string()));
+    record
+  },
+];
+
+for (i, record_data) in records.into_iter().enumerate() {
+  match filemaker.add_record(record_data).await {
+  Ok(result) => println!("Record {} added successfully: {:?}", i + 1, result),
+  Err(e) => eprintln!("Failed to add record {}: {}", i + 1, e),
+  }
+}
 ```
 
 ### Counting Records
@@ -166,9 +216,11 @@ This library comes with example implementations usable as references:
 1. **Fetch List of Databases**: [`get_databases`](examples/get_databases.rs)
 2. **Fetch Layouts from a Database**: [`filemaker_layout_fetcher`](examples/filemaker_layout_fetcher.rs)
 3. **Retrieve Records**: [`main_filemaker`](examples/main_filemaker.rs)
-4. **Update Database Records**: [`filemaker_record_updater`](examples/filemaker_record_updater.rs)
-5. **Delete Database Records**: [`filemaker_record_deleter`](examples/filemaker_record_deleter.rs)
-6. **Find Records Based on Query**: [`filemaker_search_results_output`](examples/filemaker_search_results_output.rs)
+4. **Add Single Record**: [`filemaker_single_record_adder`](examples/filemaker_single_record_adder.rs)
+5. **Add Multiple Records**: [`filemaker_multiple_record_adder`](examples/filemaker_multiple_record_adder.rs)
+6. **Update Database Records**: [`filemaker_record_updater`](examples/filemaker_record_updater.rs)
+7. **Delete Database Records**: [`filemaker_record_deleter`](examples/filemaker_record_deleter.rs)
+8. **Find Records Based on Query**: [`filemaker_search_results_output`](examples/filemaker_search_results_output.rs)
 
 ## Logging
 
@@ -178,7 +230,7 @@ The library uses the [`log`](https://docs.rs/log/) crate for logging. To capture
 use env_logger;
 
 fn main() {
-    env_logger::init();
+  env_logger::init();
 }
 ```
 
@@ -189,4 +241,3 @@ This library is licensed under the terms of the license detailed in the [`LICENS
 ---
 
 For more information, please refer to the [repository documentation](https://github.com/Drew-Chase/filemaker-lib). Contributions are welcome!
-
