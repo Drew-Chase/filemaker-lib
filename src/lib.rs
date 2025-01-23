@@ -119,6 +119,7 @@ impl Filemaker {
                 error!("Failed to serialize request body: {}", e);
                 anyhow::anyhow!(e)
             })?;
+            debug!("Request body: {}", json_body);
             request = request.body(json_body);
         }
 
