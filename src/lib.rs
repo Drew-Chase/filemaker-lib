@@ -281,14 +281,22 @@ impl Filemaker {
         if let Some(record_id) = response
             .get("response")
             .and_then(|r| r.get("recordId"))
-            .and_then(|id| id.as_u64())
+            .and_then(|id| id.as_str())
         {
-            debug!("Record added successfully. Record ID: {}", record_id);
-            let added_record = self.get_record_by_id(record_id).await?;
-            Ok(HashMap::from([
-                ("success".to_string(), Value::Bool(true)),
-                ("result".to_string(), added_record),
-            ]))
+            if let Ok(record_id) = record_id.parse::<u64>() {
+                debug!("Record added successfully. Record ID: {}", record_id);
+                let added_record = self.get_record_by_id(record_id).await?;
+                Ok(HashMap::from([
+                    ("success".to_string(), Value::Bool(true)),
+                    ("result".to_string(), added_record),
+                ]))
+            } else {
+                error!("Failed to parse record id {} - {:?}", record_id, response);
+                Ok(HashMap::from([
+                    ("success".to_string(), Value::Bool(false)),
+                    ("result".to_string(), response),
+                ]))
+            }
         } else {
             error!("Failed to add the record: {:?}", response);
             Ok(HashMap::from([
