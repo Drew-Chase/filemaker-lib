@@ -573,6 +573,12 @@ impl Filemaker {
     pub async fn clear_database(&self) -> Result<()> {
         debug!("Clearing all records from the database");
         let number_of_records = self.get_number_of_records().await?;
+        
+        if number_of_records == 0 {
+            warn!("No records found in the database. Nothing to clear");
+            return Ok(());
+        }
+        
         let records = self.get_records(1, number_of_records).await.map_err(|e| {
             error!("Failed to retrieve records for clearing database: {}", e);
             anyhow::anyhow!(e)
