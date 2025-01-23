@@ -576,6 +576,12 @@ impl Filemaker {
                     error!("Failed to delete record ID {}: {}", id, e);
                     return Err(anyhow::anyhow!(e));
                 }
+            } else {
+                error!("Record ID not found in record: {:?}", record);
+                return Err(anyhow::anyhow!(
+                    "Record ID not found in record: {:?}",
+                    record
+                ));
             }
         }
 
