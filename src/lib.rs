@@ -571,10 +571,18 @@ impl Filemaker {
         })?;
 
         for record in records {
-            if let Some(id) = record.get("recordId").and_then(|id| id.as_u64()) {
-                if let Err(e) = self.delete_record(id).await {
-                    error!("Failed to delete record ID {}: {}", id, e);
-                    return Err(anyhow::anyhow!(e));
+            if let Some(id) = record.get("recordId").and_then(|id| id.as_str()) {
+                // the record id is usually marked as a string even though its a u64
+                // so we will have to convert it.
+                if let Ok(id) = id.parse::<u64>() {
+                    debug!("Deleting record ID: {}", id);
+                    if let Err(e) = self.delete_record(id).await {
+                        error!("Failed to delete record ID {}: {}", id, e);
+                        return Err(anyhow::anyhow!(e));
+                    }
+                } else {
+                    error!("Failed to parse record ID {} as u64", id);
+                    return Err(anyhow::anyhow!("Failed to parse record ID as u64"));
                 }
             } else {
                 error!("Record ID not found in record: {:?}", record);
