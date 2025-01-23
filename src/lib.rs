@@ -1,11 +1,11 @@
+use anyhow::Result;
 use base64::Engine;
+use log::*;
 use reqwest::{Client, Method};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use anyhow::Result;
-use log::*;
 
 #[derive(Clone)]
 pub struct Filemaker {
@@ -16,12 +16,7 @@ pub struct Filemaker {
 }
 impl Filemaker {
     /// Creates a new `Filemaker` instance.
-    pub async fn new(
-        username: &str,
-        password: &str,
-        database: &str,
-        table: &str,
-    ) -> Result<Self> {
+    pub async fn new(username: &str, password: &str, database: &str, table: &str) -> Result<Self> {
         let encoded_database = Self::encode_parameter(database);
         let encoded_table = Self::encode_parameter(table);
 
@@ -89,7 +84,10 @@ impl Filemaker {
             info!("Session token retrieved successfully");
             Ok(token.to_string())
         } else {
-            error!("Failed to get token from FileMaker API response: {:?}", json);
+            error!(
+                "Failed to get token from FileMaker API response: {:?}",
+                json
+            );
             Err(anyhow::anyhow!("Failed to get token from FileMaker API"))
         }
     }
@@ -141,7 +139,10 @@ impl Filemaker {
     }
 
     /// Retrieves records from the database.
-    pub async fn get_records(&self, start: usize, limit: usize) -> Result<Vec<Value>> {
+    pub async fn get_records<T>(&self, start: T, limit: T) -> Result<Vec<Value>>
+    where
+        T: Sized + Clone + std::fmt::Display + std::str::FromStr + TryFrom<usize>,
+    {
         let url = format!(
             "{}/databases/{}/layouts/{}/records?_offset={}&_limit={}",
             std::env::var("FM_URL").unwrap_or_default().as_str(),
@@ -168,7 +169,7 @@ impl Filemaker {
         let total_count = self.get_number_of_records().await?;
         debug!("Total records to fetch: {}", total_count);
 
-        self.get_records(1, total_count as usize).await
+        self.get_records(1, total_count).await
     }
 
     /// Retrieves the total number of records in the database.
@@ -192,7 +193,10 @@ impl Filemaker {
             info!("Total record count retrieved successfully: {}", total_count);
             Ok(total_count)
         } else {
-            error!("Failed to retrieve total record count from response: {:?}", response);
+            error!(
+                "Failed to retrieve total record count from response: {:?}",
+                response
+            );
             Err(anyhow::anyhow!("Failed to retrieve total record count"))
         }
     }
@@ -223,35 +227,27 @@ impl Filemaker {
             .collect();
 
         let body: HashMap<String, Value> = HashMap::from([
-            (
-                "query".to_string(),
-                serde_json::to_value(query)?,
-            ),
-            (
-                "sort".to_string(),
-                serde_json::to_value(sort_map)?,
-            ),
+            ("query".to_string(), serde_json::to_value(query)?),
+            ("sort".to_string(), serde_json::to_value(sort_map)?),
         ]);
 
         debug!("Executing search query with URL: {}. Body: {:?}", url, body);
 
         let response = self
-            .authenticated_request(
-                &url,
-                Method::POST,
-                Some(serde_json::to_value(body)?),
-            )
+            .authenticated_request(&url, Method::POST, Some(serde_json::to_value(body)?))
             .await?;
         if let Some(data) = response.get("response").and_then(|r| r.get("data")) {
             info!("Search query executed successfully");
             Ok(data.as_array().unwrap_or(&vec![]).clone())
         } else {
-            error!("Failed to retrieve search results from response: {:?}", response);
+            error!(
+                "Failed to retrieve search results from response: {:?}",
+                response
+            );
             Err(anyhow::anyhow!("Failed to retrieve search results"))
         }
     }
 
-    
     /// Adds a record to the database.
     ///
     /// # Parameters
@@ -279,11 +275,7 @@ impl Filemaker {
 
         // Make the API call
         let response = self
-            .authenticated_request(
-                &url,
-                Method::POST,
-                Some(serde_json::to_value(body)?),
-            )
+            .authenticated_request(&url, Method::POST, Some(serde_json::to_value(body)?))
             .await?;
 
         if let Some(record_id) = response
@@ -292,7 +284,7 @@ impl Filemaker {
             .and_then(|id| id.as_u64())
         {
             debug!("Record added successfully. Record ID: {}", record_id);
-            let added_record = self.get_record_by_id(record_id as usize).await?;
+            let added_record = self.get_record_by_id(record_id).await?;
             Ok(HashMap::from([
                 ("success".to_string(), Value::Bool(true)),
                 ("result".to_string(), added_record),
@@ -305,13 +297,12 @@ impl Filemaker {
             ]))
         }
     }
-    
+
     /// Updates a record in the database.
-    pub async fn update_record(
-        &self,
-        id: usize,
-        field_data: HashMap<String, Value>,
-    ) -> Result<Value> {
+    pub async fn update_record<T>(&self, id: T, field_data: HashMap<String, Value>) -> Result<Value>
+    where
+        T: Sized + Clone + std::fmt::Display + std::str::FromStr + TryFrom<usize>,
+    {
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
             std::env::var("FM_URL").unwrap_or_default().as_str(),
@@ -325,11 +316,7 @@ impl Filemaker {
         debug!("Updating record ID: {}. URL: {}. Body: {:?}", id, url, body);
 
         let response = self
-            .authenticated_request(
-                &url,
-                Method::PATCH,
-                Some(serde_json::to_value(body)?),
-            )
+            .authenticated_request(&url, Method::PATCH, Some(serde_json::to_value(body)?))
             .await?;
 
         info!("Record ID: {} updated successfully", id);
@@ -376,8 +363,8 @@ impl Filemaker {
                 .iter()
                 .filter_map(|db| {
                     db.get("name")
-                      .and_then(|n| n.as_str())
-                      .map(|s| s.to_string())
+                        .and_then(|n| n.as_str())
+                        .map(|s| s.to_string())
                 })
                 .collect();
             info!("Database list retrieved successfully");
@@ -405,10 +392,12 @@ impl Filemaker {
 
         // Get session token
         let client = Client::new();
-        let token = Self::get_session_token(&client, database, username, password).await.map_err(|e| {
-            error!("Failed to get session token for layouts: {}", e);
-            anyhow::anyhow!(e)
-        })?;
+        let token = Self::get_session_token(&client, database, username, password)
+            .await
+            .map_err(|e| {
+                error!("Failed to get session token for layouts: {}", e);
+                anyhow::anyhow!(e)
+            })?;
 
         let auth_header = format!("Bearer {}", token);
 
@@ -458,7 +447,10 @@ impl Filemaker {
     ///
     /// # Returns
     /// A JSON object representing the record.
-    pub async fn get_record_by_id(&self, id: usize) -> Result<Value> {
+    pub async fn get_record_by_id<T>(&self, id: T) -> Result<Value>
+    where
+        T: Sized + Clone + std::fmt::Display + std::str::FromStr + TryFrom<usize>,
+    {
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
             std::env::var("FM_URL").unwrap_or_default().as_str(),
@@ -469,10 +461,13 @@ impl Filemaker {
 
         debug!("Fetching record with ID: {} from URL: {}", id, url);
 
-        let response = self.authenticated_request(&url, Method::GET, None).await.map_err(|e| {
-            error!("Failed to get record ID {}: {}", id, e);
-            anyhow::anyhow!(e)
-        })?;
+        let response = self
+            .authenticated_request(&url, Method::GET, None)
+            .await
+            .map_err(|e| {
+                error!("Failed to get record ID {}: {}", id, e);
+                anyhow::anyhow!(e)
+            })?;
 
         if let Some(data) = response.get("response").and_then(|r| r.get("data")) {
             if let Some(record) = data.as_array().and_then(|arr| arr.first()) {
@@ -495,7 +490,10 @@ impl Filemaker {
     ///
     /// # Returns
     /// A result indicating the deletion was successful or an error message.
-    pub async fn delete_record(&self, id: usize) -> Result<Value> {
+    pub async fn delete_record<T>(&self, id: T) -> Result<Value>
+    where
+        T: Sized + Clone + std::fmt::Display + std::str::FromStr + TryFrom<usize>,
+    {
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
             std::env::var("FM_URL").unwrap_or_default().as_str(),
@@ -529,11 +527,7 @@ impl Filemaker {
     /// * `database` - The name of the database to delete.
     /// * `username` - The username for authentication.
     /// * `password` - The password for authentication.
-    pub async fn delete_database(
-        database: &str,
-        username: &str,
-        password: &str,
-    ) -> Result<()> {
+    pub async fn delete_database(database: &str, username: &str, password: &str) -> Result<()> {
         let encoded_database = Self::encode_parameter(database);
         let url = format!(
             "{}/databases/{}",
@@ -544,10 +538,12 @@ impl Filemaker {
         debug!("Deleting database: {}", database);
 
         let client = Client::new();
-        let token = Self::get_session_token(&client, database, username, password).await.map_err(|e| {
-            error!("Failed to get session token for database deletion: {}", e);
-            anyhow::anyhow!(e)
-        })?;
+        let token = Self::get_session_token(&client, database, username, password)
+            .await
+            .map_err(|e| {
+                error!("Failed to get session token for database deletion: {}", e);
+                anyhow::anyhow!(e)
+            })?;
         let auth_header = format!("Bearer {}", token);
 
         client
@@ -568,15 +564,15 @@ impl Filemaker {
     /// Deletes all records from the current database.
     pub async fn clear_database(&self) -> Result<()> {
         debug!("Clearing all records from the database");
-
-        let records = self.get_records(1, usize::MAX).await.map_err(|e| {
+        let number_of_records = self.get_number_of_records().await?;
+        let records = self.get_records(1, number_of_records).await.map_err(|e| {
             error!("Failed to retrieve records for clearing database: {}", e);
             anyhow::anyhow!(e)
         })?;
 
         for record in records {
             if let Some(id) = record.get("recordId").and_then(|id| id.as_u64()) {
-                if let Err(e) = self.delete_record(id as usize).await {
+                if let Err(e) = self.delete_record(id).await {
                     error!("Failed to delete record ID {}: {}", id, e);
                     return Err(anyhow::anyhow!(e));
                 }
@@ -642,11 +638,9 @@ impl Filemaker {
         );
 
         debug!(
-        "Preparing advanced search with fields: {:?}, sort: {:?}, ascending: {}",
-        fields,
-        sort,
-        ascending
-    );
+            "Preparing advanced search with fields: {:?}, sort: {:?}, ascending: {}",
+            fields, sort, ascending
+        );
 
         let mut content = serde_json::Map::new();
         content.insert(
@@ -659,15 +653,18 @@ impl Filemaker {
                 .into_iter()
                 .map(|s| {
                     json!({
-                    "fieldName": s,
-                    "sortOrder": if ascending { "ascend" } else { "descend" }
-                })
+                        "fieldName": s,
+                        "sortOrder": if ascending { "ascend" } else { "descend" }
+                    })
                 })
                 .collect();
             content.insert("sort".to_string(), Value::Array(sort_array));
         }
 
-        debug!("Sending authenticated request to URL: {} with content: {:?}", url, content);
+        debug!(
+            "Sending authenticated request to URL: {} with content: {:?}",
+            url, content
+        );
 
         let response = self
             .authenticated_request(&url, Method::POST, Some(Value::Object(content)))
@@ -678,11 +675,16 @@ impl Filemaker {
             .and_then(|r| r.get("data"))
             .and_then(|d| d.as_array())
         {
-            info!("Advanced search completed successfully, retrieved {} records", data.len());
+            info!(
+                "Advanced search completed successfully, retrieved {} records",
+                data.len()
+            );
             Ok(data.clone())
         } else {
             error!("Failed to retrieve advanced search results: {:?}", response);
-            Err(anyhow::anyhow!("Failed to retrieve advanced search results"))
+            Err(anyhow::anyhow!(
+                "Failed to retrieve advanced search results"
+            ))
         }
     }
 
