@@ -258,11 +258,11 @@ pub struct Record<T> {
     #[serde(rename = "fieldData")]
     pub data: T,
     #[serde(rename = "portalData")]
-    pub portal_data: Vec<Value>,
+    pub portal_data: Value,
     #[serde(rename = "recordId")]
-    pub record_id: u64,
+    pub record_id: String,
     #[serde(rename = "modId")]
-    pub mod_id: u64,
+    pub mod_id: String,
 }
 
 /// Represents a connection to a Filemaker database with authentication and query capabilities.
