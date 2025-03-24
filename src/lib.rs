@@ -243,7 +243,6 @@
 //!
 //! For more information, please refer to the [repository documentation](https://github.com/Drew-Chase/filemaker-lib). Contributions are welcome!
 
-
 use anyhow::Result;
 use base64::Engine;
 use log::*;
@@ -251,7 +250,20 @@ use reqwest::{Client, Method};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct Record<T> {
+    #[serde(rename = "fieldData")]
+    pub data: T,
+    #[serde(rename = "portalData")]
+    pub portal_data: Vec<Value>,
+    #[serde(rename = "recordId")]
+    pub record_id: u64,
+    #[serde(rename = "modId")]
+    pub mod_id: u64,
+}
 
 /// Represents a connection to a Filemaker database with authentication and query capabilities.
 ///
@@ -549,9 +561,9 @@ impl Filemaker {
         query: Vec<HashMap<String, String>>,
         sort: Vec<String>,
         ascending: bool,
-    ) -> Result<Vec<T>>
-        where
-            T: serde::de::DeserializeOwned + Default,
+    ) -> Result<Vec<Record<T>>>
+    where
+        T: serde::de::DeserializeOwned + Default,
     {
         // Construct the URL for the FileMaker Data API find endpoint
         let url = format!(
@@ -589,7 +601,7 @@ impl Filemaker {
 
         // Extract the search results and deserialize into the specified type
         if let Some(data) = response.get("response").and_then(|r| r.get("data")) {
-            let deserialized: Vec<T> = serde_json::from_value(data.clone()).map_err(|e| {
+            let deserialized: Vec<Record<T>> = serde_json::from_value(data.clone()).map_err(|e| {
                 error!("Failed to deserialize search results: {}", e);
                 anyhow::anyhow!(e)
             })?;
@@ -598,9 +610,9 @@ impl Filemaker {
         } else {
             // Log and return error if the expected data structure is not found
             error!(
-            "Failed to retrieve search results from response: {:?}",
-            response
-        );
+                "Failed to retrieve search results from response: {:?}",
+                response
+            );
             Err(anyhow::anyhow!("Failed to retrieve search results"))
         }
     }
