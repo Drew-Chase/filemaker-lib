@@ -247,13 +247,13 @@ use anyhow::Result;
 use base64::Engine;
 use log::*;
 use reqwest::{Client, Method};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Record<T> {
     #[serde(rename = "fieldData")]
     pub data: T,
@@ -263,6 +263,38 @@ pub struct Record<T> {
     pub record_id: String,
     #[serde(rename = "modId")]
     pub mod_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct FindResult<T> {
+    pub response: FindResponse<T>,
+    pub messages: Vec<Message>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct FindResponse<T> {
+    #[serde(rename = "dataInfo")]
+    pub info: DataInfo,
+    pub data: Vec<Record<T>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Message {
+    pub message: String,
+    pub code: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct DataInfo {
+    pub database: String,
+    pub layout: String,
+    pub table: String,
+    #[serde(rename = "totalRecordCount")]
+    pub total_record_count: u64,
+    #[serde(rename = "foundCount")]
+    pub found_count: u64,
+    #[serde(rename = "returnedCount")]
+    pub returned_count: u64,
 }
 
 /// Represents a connection to a Filemaker database with authentication and query capabilities.
@@ -561,7 +593,7 @@ impl Filemaker {
         query: Vec<HashMap<String, String>>,
         sort: Vec<String>,
         ascending: bool,
-    ) -> Result<Vec<Record<T>>>
+    ) -> Result<FindResult<T>>
     where
         T: serde::de::DeserializeOwned + Default,
     {
@@ -600,21 +632,15 @@ impl Filemaker {
             .await?;
 
         // Extract the search results and deserialize into the specified type
-        if let Some(data) = response.get("response").and_then(|r| r.get("data")) {
-            let deserialized: Vec<Record<T>> = serde_json::from_value(data.clone()).map_err(|e| {
-                error!("Failed to deserialize search results: {}", e);
-                anyhow::anyhow!(e)
-            })?;
-            info!("Search query executed successfully");
-            Ok(deserialized)
-        } else {
-            // Log and return error if the expected data structure is not found
+        let deserialized: FindResult<T> = serde_json::from_value(response.clone()).map_err(|e| {
             error!(
-                "Failed to retrieve search results from response: {:?}",
-                response
+                "Failed to deserialize search results: {}. Response: {:?}",
+                e, response
             );
-            Err(anyhow::anyhow!("Failed to retrieve search results"))
-        }
+            anyhow::anyhow!(e)
+        })?;
+        info!("Search query executed successfully");
+        Ok(deserialized)
     }
 
     /// Adds a record to the database.

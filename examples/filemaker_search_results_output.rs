@@ -22,33 +22,9 @@ async fn main() -> Result<()> {
 
     let records = filemaker.search::<Value>(vec![query], sort_fields, ascending).await?;
     println!("Search Results:");
-    for record in records {
+    for record in records.response.data {
         println!("{:?}", record);
     }
 
     Ok(())
-}
-
-#[tokio::test]
-async fn test_get_records() {
-    std::env::set_var("FM_URL", "https://fm.mardens.com/fmi/data/vLatest");
-    let username = "admin";
-    let password = "19MRCC77!";
-    let database = "PIMA";
-    let table = "PO Raw Details";
-    let filemaker = Filemaker::new(username, password, database, table)
-        .await
-        .unwrap();
-    let mut query = HashMap::new();
-    query.insert("DateOrdered".to_string(), ">2024".to_string());
-
-    let sort_fields = vec!["DateOrdered".to_string()];
-    let ascending = true;
-
-    let search_results = filemaker
-        .search::<Value>(vec![query], sort_fields, ascending)
-        .await
-        .unwrap();
-    println!("{:#?}", search_results[0]);
-    assert!(!search_results.is_empty());
 }
