@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     let ascending = true;
 
     let records = filemaker
-        .search::<Value>(vec![query], sort_fields, ascending)
+        .search::<Value>(vec![query], sort_fields, ascending, Some(10))
         .await?;
     println!("Search Results:");
     for record in records.response.data {

@@ -614,6 +614,7 @@ impl Filemaker {
     /// * `query` - Vector of field-value pairs to search for
     /// * `sort` - Vector of field names to sort by
     /// * `ascending` - Whether to sort in ascending (true) or descending (false) order
+    /// * `limit` - If None, all results will be returned; otherwise, the specified limit will be applied
     ///
     /// # Returns
     /// * `Result<Vec<T>>` - A vector of matching records as the specified type on success, or an error
@@ -622,6 +623,7 @@ impl Filemaker {
         query: Vec<HashMap<String, String>>,
         sort: Vec<String>,
         ascending: bool,
+        limit: Option<u64>,
     ) -> Result<FindResult<T>>
     where
         T: serde::de::DeserializeOwned + Default,
@@ -649,10 +651,15 @@ impl Filemaker {
             .collect();
 
         // Construct the request body with query and sort parameters
-        let body: HashMap<String, Value> = HashMap::from([
+        let mut body: HashMap<String, Value> = HashMap::from([
             ("query".to_string(), serde_json::to_value(query)?),
             ("sort".to_string(), serde_json::to_value(sort_map)?),
         ]);
+        if let Some(limit) = limit {
+            body.insert("limit".to_string(), serde_json::to_value(limit)?);
+        }else{
+            body.insert("limit".to_string(), serde_json::to_value(u32::MAX)?);
+        }
         debug!("Executing search query with URL: {}. Body: {:?}", url, body);
 
         // Send authenticated POST request to the API endpoint
@@ -661,13 +668,14 @@ impl Filemaker {
             .await?;
 
         // Extract the search results and deserialize into the specified type
-        let deserialized: FindResult<T> = serde_json::from_value(response.clone()).map_err(|e| {
-            error!(
-                "Failed to deserialize search results: {}. Response: {:?}",
-                e, response
-            );
-            anyhow::anyhow!(e)
-        })?;
+        let deserialized: FindResult<T> =
+            serde_json::from_value(response.clone()).map_err(|e| {
+                error!(
+                    "Failed to deserialize search results: {}. Response: {:?}",
+                    e, response
+                );
+                anyhow::anyhow!(e)
+            })?;
         info!("Search query executed successfully");
         Ok(deserialized)
     }
