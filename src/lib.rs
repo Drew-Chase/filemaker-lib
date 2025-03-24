@@ -253,46 +253,75 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Represents a single record from a database query.
+///
+/// The generic type `T` represents the structure of the field data.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Record<T> {
+    /// The actual field data of the record, structured according to type T.
     #[serde(rename = "fieldData")]
     pub data: T,
+    /// Related data from portal tables, stored as a generic JSON Value.
     #[serde(rename = "portalData")]
     pub portal_data: Value,
+    /// Unique identifier for the record in the database.
     #[serde(rename = "recordId")]
     pub record_id: String,
+    /// Modification identifier for the record, used for optimistic locking.
     #[serde(rename = "modId")]
     pub mod_id: String,
 }
 
+/// Container for the complete result of a find operation, including response data and messages.
+///
+/// The generic type `T` represents the structure of individual record data.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct FindResult<T> {
-    pub response: FindResponse<T>,
+    /// The main response containing record data and metadata.
+    pub response: Response<T>,
+    /// List of messages returned by the database operation, often containing status or error information.
     pub messages: Vec<Message>,
 }
 
+/// Contains the response data from a find operation.
+///
+/// The generic type `T` represents the structure of individual record data.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct FindResponse<T> {
+pub struct Response<T> {
+    /// Metadata about the data returned from the find operation.
     #[serde(rename = "dataInfo")]
     pub info: DataInfo,
+    /// Collection of records matching the find criteria.
     pub data: Vec<Record<T>>,
 }
 
+/// Represents a message returned by the database operations.
+///
+/// These messages typically provide information about the success or failure of operations.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Message {
+    /// The content of the message.
     pub message: String,
+    /// A code associated with the message, often indicating the type of message or error.
     pub code: String,
 }
 
+/// Metadata about the data returned from a database query.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct DataInfo {
+    /// Name of the database that was queried.
     pub database: String,
+    /// Name of the layout used for the query.
     pub layout: String,
+    /// Name of the table that was queried.
     pub table: String,
+    /// Total number of records in the table before applying any filters.
     #[serde(rename = "totalRecordCount")]
     pub total_record_count: u64,
+    /// Number of records that matched the find criteria.
     #[serde(rename = "foundCount")]
     pub found_count: u64,
+    /// Number of records actually returned in the response (may be limited by pagination).
     #[serde(rename = "returnedCount")]
     pub returned_count: u64,
 }
