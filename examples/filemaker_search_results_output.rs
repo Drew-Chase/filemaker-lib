@@ -1,6 +1,7 @@
 use filemaker_lib::Filemaker;
 use anyhow::Result;
 use std::collections::HashMap;
+use serde_json::Value;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
     let sort_fields = vec!["fieldName".to_string()]; // Replace with the field name to sort
     let ascending = true;
 
-    let records = filemaker.search(vec![query], sort_fields, ascending).await?;
+    let records = filemaker.search::<Value>(vec![query], sort_fields, ascending).await?;
     println!("Search Results:");
     for record in records {
         println!("{:?}", record);

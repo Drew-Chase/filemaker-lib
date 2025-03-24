@@ -143,7 +143,7 @@ query.insert("fieldName".to_string(), "example_value".to_string());
 let sort_fields = vec!["fieldName".to_string()];
 let ascending = true;
 
-let search_results = filemaker.search(vec![query], sort_fields, ascending).await?;
+let search_results = filemaker.search::<serde_json::Value>(vec![query], sort_fields, ascending).await?;
 println!("Search Results: {:?}", search_results);
 ```
 
