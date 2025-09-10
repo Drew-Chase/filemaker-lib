@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Result};
 use base64::Engine;
 use log::*;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -117,8 +118,8 @@ impl Filemaker {
     /// * `Result<Self>` - A new Filemaker instance or an error
     pub async fn new(username: &str, password: &str, database: &str, table: &str) -> Result<Self> {
         // URL-encode database and table names to handle spaces and special characters
-        let encoded_database = Self::encode_parameter(database);
-        let encoded_table = Self::encode_parameter(table);
+        let encoded_database = utf8_percent_encode(database, NON_ALPHANUMERIC).to_string();
+        let encoded_table = utf8_percent_encode(table, NON_ALPHANUMERIC).to_string();
 
         // Create an HTTP client that accepts invalid SSL certificates (for development)
         let client = Client::builder()
@@ -232,7 +233,7 @@ impl Filemaker {
         password: &str,
     ) -> Result<String> {
         // URL-encode the database name to handle spaces and special characters
-        let database = Self::encode_parameter(database);
+        let database = utf8_percent_encode(database, NON_ALPHANUMERIC).to_string();
 
         // Construct the URL for the session endpoint
         let url = format!("{}/databases/{}/sessions", Self::get_fm_url()?, database);
@@ -751,7 +752,7 @@ impl Filemaker {
         database: &str,
     ) -> Result<Vec<String>> {
         // URL encode the database name and construct the API endpoint URL
-        let encoded_database = Self::encode_parameter(database);
+        let encoded_database = utf8_percent_encode(database, NON_ALPHANUMERIC).to_string();
         let url = format!(
             "{}/databases/{}/layouts",
             Self::get_fm_url()?,
@@ -904,7 +905,7 @@ impl Filemaker {
     /// * `username` - The username for authentication.
     /// * `password` - The password for authentication.
     pub async fn delete_database(database: &str, username: &str, password: &str) -> Result<()> {
-        let encoded_database = Self::encode_parameter(database);
+        let encoded_database = utf8_percent_encode(database, NON_ALPHANUMERIC).to_string();
         let url = format!("{}/databases/{}", Self::get_fm_url()?, encoded_database);
 
         debug!("Deleting database: {}", database);
@@ -1110,28 +1111,5 @@ impl Filemaker {
                 "Failed to retrieve advanced search results"
             ))
         }
-    }
-
-    /// Encodes a parameter by replacing spaces with `%20`.
-    ///
-    /// This function takes a string parameter and replaces all spaces with URL-encoded
-    /// representation (%20), which is useful for preparing strings to be included in URLs.
-    ///
-    /// # Arguments
-    ///
-    /// * `parameter` - The string to be encoded
-    ///
-    /// # Returns
-    ///
-    /// A new String with all spaces replaced by %20
-    fn encode_parameter(parameter: &str) -> String {
-        // Replace all spaces with %20 URL encoding
-        let encoded = parameter.replace(" ", "%20");
-
-        // Log the encoding operation at debug level
-        debug!("Encoded parameter '{}' to '{}'", parameter, encoded);
-
-        // Return the encoded string
-        encoded
     }
 }
