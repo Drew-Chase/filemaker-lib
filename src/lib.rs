@@ -206,7 +206,7 @@ impl Filemaker {
     /// }
     /// ```
     fn get_fm_url() -> Result<String> {
-        let rwlock =FM_URL
+        let rwlock = FM_URL
             .read()
             .map_err(|e| anyhow!("Failed to read FM_URL: {}", e))?;
         rwlock.clone().ok_or(anyhow!("FM_URL is not set"))
@@ -235,11 +235,7 @@ impl Filemaker {
         let database = Self::encode_parameter(database);
 
         // Construct the URL for the session endpoint
-        let url = format!(
-            "{}/databases/{}/sessions",
-            Self::get_fm_url()?,
-            database
-        );
+        let url = format!("{}/databases/{}/sessions", Self::get_fm_url()?, database);
 
         // Create a Base64-encoded Basic authentication header
         let auth_header = format!(
@@ -392,13 +388,80 @@ impl Filemaker {
     ///
     /// # Returns
     /// * `Result<Vec<Value>>` - A vector containing all records on success, or an error
-    pub async fn get_all_records(&self) -> Result<Vec<Value>> {
+    pub async fn get_all_records_raw(&self) -> Result<Vec<Value>> {
         // First get the total number of records in the database
         let total_count = self.get_number_of_records().await?;
         debug!("Total records to fetch: {}", total_count);
 
         // Retrieve all records in a single request
         self.get_records(1, total_count).await
+    }
+
+    /// Asynchronously retrieves all records from the data source, deserializing them into the specified type.
+    ///
+    /// # Type Parameters
+    /// - `T`: The type into which each record will be deserialized. It must implement the
+    ///   `serde::de::DeserializeOwned` trait.
+    ///
+    /// # Returns
+    /// - `Ok(Vec<T>)`: A vector of deserialized records of type `T` if the operation is successful.
+    /// - `Err(anyhow::Error)`: An error if there is an issue with retrieving raw records, missing
+    ///   `fieldData`, or deserialization failure.
+    ///
+    /// # Errors
+    /// - Returns an error if:
+    ///   - The `get_all_records_raw` method fails to retrieve data.
+    ///   - A record is missing the `fieldData` field, which is required for deserialization.
+    ///   - Deserialization of the `fieldData` into type `T` fails. The error logs the specific reason for failure
+    ///     and the problematic data.
+    ///
+    /// # Logs
+    /// - Logs an error if:
+    ///   - Deserialization of a record fails, indicating the cause and the corresponding `fieldData`.
+    ///   - A record lacks the required `fieldData`, with the full problematic record logged.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// #[derive(serde::Deserialize)]
+    /// struct MyRecord {
+    ///     id: u32,
+    ///     name: String,
+    /// }
+    ///
+    /// let data_source = MyDataSource::new();
+    /// let records: Vec<MyRecord> = data_source.get_all_records().await.unwrap();
+    /// for record in records {
+    ///     println!("Record ID: {}, Name: {}", record.id, record.name);
+    /// }
+    /// ```
+    ///
+    /// Make sure that the deserialization type `T` matches the structure of the data being retrieved from the source.
+    pub async fn get_all_records<T>(&self) -> Result<Vec<T>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let raw = self.get_all_records_raw().await?;
+        let mut items: Vec<T> = vec![];
+        for item in raw {
+            if let Some(data) = item.get("fieldData") {
+                let deserialized: T = serde_json::from_value(data.clone()).map_err(|e| {
+                    error!("Failed to deserialize record: {}. Response: {:?}", e, data);
+                    anyhow::anyhow!(e)
+                })?;
+                items.push(deserialized);
+            } else {
+                error!(
+                    "Failed to deserialize record, fieldData is missing: {:?}",
+                    item
+                );
+                return Err(anyhow::anyhow!(
+                    "Failed to deserialize record, fieldData is missing"
+                ));
+            }
+        }
+
+        Ok(items)
     }
 
     /// Retrieves the total number of records in the database table.
@@ -617,10 +680,7 @@ impl Filemaker {
     /// * `Result<Vec<String>>` - A list of accessible database names or an error
     pub async fn get_databases(username: &str, password: &str) -> Result<Vec<String>> {
         // Construct the API endpoint URL for retrieving databases
-        let url = format!(
-            "{}/databases",
-            Self::get_fm_url()?
-        );
+        let url = format!("{}/databases", Self::get_fm_url()?);
 
         // Create Base64 encoded Basic auth header from username and password
         let auth_header = format!(
@@ -845,11 +905,7 @@ impl Filemaker {
     /// * `password` - The password for authentication.
     pub async fn delete_database(database: &str, username: &str, password: &str) -> Result<()> {
         let encoded_database = Self::encode_parameter(database);
-        let url = format!(
-            "{}/databases/{}",
-            Self::get_fm_url()?,
-            encoded_database
-        );
+        let url = format!("{}/databases/{}", Self::get_fm_url()?, encoded_database);
 
         debug!("Deleting database: {}", database);
 

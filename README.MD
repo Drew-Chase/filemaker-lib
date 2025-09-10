@@ -83,9 +83,24 @@ println!("Fetched Records: {:?}", records);
 Fetch all records at once:
 
 ```rust
-let all_records = filemaker.get_all_records().await?;
+let all_records = filemaker.get_all_records_raw().await?;
 println!("All Records: {:?}", all_records);
 ```
+
+Fetch all records as serialized struct:
+```rust
+#[derive(serde::Deserialize, Debug)]
+struct Record {
+  field_name1: String,
+  field_name2: String,
+}
+
+let all_records = filemaker.get_all_records::<Record>().await?;
+println!("All Records: {:?}", all_records);
+
+```
+
+
 
 ### Adding Records
 
