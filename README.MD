@@ -56,6 +56,21 @@ async fn main() -> Result<()> {
 }
 ```
 
+## Setting Filemaker API URL (Version 0.1.x)
+
+The library uses the `FM_URL` environment variable to specify the base URL of the FileMaker server. You need to set this variable before using the library:
+
+```rust
+std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest");
+```
+Replace `"https://fm.example.com/fmi/data/vLatest"` with the actual URL of your FileMaker server.
+
+## Setting Filemaker API URL (Version 0.2.x)
+In version 0.2.x, the library uses a new method to set the URL:
+```rust
+Filemaker::set_fm_url("https://fm.example.com/fmi/data/vLatest")?;
+```
+
 ### Fetching Records
 
 Retrieve specific records with pagination:
@@ -197,21 +212,6 @@ Delete all records from the current database and table:
 ```rust
 filemaker.clear_database().await?;
 println!("All records cleared successfully.");
-```
-
-## Setting Filemaker API URL (Version 0.1.x)
-
-The library uses the `FM_URL` environment variable to specify the base URL of the FileMaker server. You need to set this variable before using the library:
-
-```rust
-std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest");
-```
-Replace `"https://fm.example.com/fmi/data/vLatest"` with the actual URL of your FileMaker server.
-
-## Setting Filemaker API URL (Version 0.2.x)
-In version 0.2.x, the library uses a new method to set the URL:
-```rust
-Filemaker::set_fm_url("https://fm.example.com/fmi/data/vLatest")?;
 ```
 
 ## Examples
