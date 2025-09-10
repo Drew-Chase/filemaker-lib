@@ -1,257 +1,16 @@
-//!
-//! # Filemaker Library (filemaker-lib)
-//!
-//! This project is a Rust library (`filemaker-lib`) designed to interact with the FileMaker Data API. It provides a simple API to perform key operations against FileMaker databases, such as fetching records, performing searches, updating records, deleting records, and manipulating database sessions.
-//!
-//! ## Features
-//!
-//! - **[Database Interaction](#fetching-databases)**: Fetch the list of available databases.
-//! - **[Authentication](#initialization)**: Securely manage session tokens for interacting with the FileMaker Data API.
-//! - **[Record Management](#record-management)**:
-//!   - [Fetch records](#fetching-records) (paginated or all at once).
-//!   - [Search for records](#searching-records) based on custom queries and sorting criteria.
-//!   - [Add single or multiple records](#adding-records).
-//!   - [Update specific records](#updating-records).
-//!   - [Delete records](#deleting-records) from a database.
-//! - **[Database Layouts](#fetching-available-layouts)**: Retrieve the layouts available in a given database.
-//! - **[Database Clearing](#clearing-the-database)**: Delete all records within a database.
-//! - **[Advanced Querying and Sorting](#searching-records)**: Search with advanced queries and sort results in ascending or descending order.
-//! - **Utility Functions**: Extract field names from records and encode database parameters safely.
-//!
-//! ## Installation
-//!
-//! Add `filemaker-lib` to your project's `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! filemaker-lib = "0.1.0"
-//! ```
-//! or using git
-//!
-//! ```toml
-//! [dependencies]
-//! filemaker-lib = {git = "https://github.com/Drew-Chase/filemaker-lib.git"}
-//! ```
-//!
-//! ## Usage
-//!
-//! ### Initialization
-//!
-//! To create a `Filemaker` instance, you need to pass valid credentials (username and password), the name of the database, and the table you want to work with:
-//!
-//! ```rust
-//! use filemaker_lib::Filemaker;
-//! use anyhow::Result;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<()> {
-//!   std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest"); // Replace with actual FileMaker server URL
-//!   let username = "your_username";
-//!   let password = "your_password";
-//!   let database = "your_database";
-//!   let table = "your_table";
-//!
-//!   let filemaker = Filemaker::new(username, password, database, table).await?;
-//!   println!("Filemaker instance created successfully.");
-//!   Ok(())
-//! }
-//! ```
-//!
-//! ### Fetching Records
-//!
-//! Retrieve specific records with pagination:
-//!
-//! ```rust
-//! let records = filemaker.get_records(1, 10).await?;
-//! println!("Fetched Records: {:?}", records);
-//! ```
-//!
-//! Fetch all records at once:
-//!
-//! ```rust
-//! let all_records = filemaker.get_all_records().await?;
-//! println!("All Records: {:?}", all_records);
-//! ```
-//!
-//! ### Adding Records
-//!
-//! #### Adding a Single Record
-//!
-//! To add a single record to your FileMaker database:
-//!
-//! ```rust
-//! use serde_json::Value;
-//! use std::collections::HashMap;
-//!
-//! let mut single_record_data = HashMap::new();
-//! single_record_data.insert("field_name1".to_string(), Value::String("Value 1".to_string()));
-//! single_record_data.insert("field_name2".to_string(), Value::String("Value 2".to_string()));
-//!
-//! let result = filemaker.add_record(single_record_data).await?;
-//! println!("Single record added: {:?}", result);
-//! ```
-//!
-//! #### Adding Multiple Records
-//!
-//! To add multiple records to your FileMaker database:
-//!
-//! ```rust
-//! use serde_json::Value;
-//! use std::collections::HashMap;
-//!
-//! let records = vec![
-//!   {
-//!     let mut record = HashMap::new();
-//!     record.insert("field_name1".to_string(), Value::String("First Record - Value 1".to_string()));
-//!     record.insert("field_name2".to_string(), Value::String("First Record - Value 2".to_string()));
-//!     record
-//!   },
-//!   {
-//!     let mut record = HashMap::new();
-//!     record.insert("field_name1".to_string(), Value::String("Second Record - Value 1".to_string()));
-//!     record.insert("field_name2".to_string(), Value::String("Second Record - Value 2".to_string()));
-//!     record
-//!   },
-//! ];
-//!
-//! for (i, record_data) in records.into_iter().enumerate() {
-//!   match filemaker.add_record(record_data).await {
-//!   Ok(result) => println!("Record {} added successfully: {:?}", i + 1, result),
-//!   Err(e) => eprintln!("Failed to add record {}: {}", i + 1, e),
-//!   }
-//! }
-//! ```
-//!
-//! ### Counting Records
-//!
-//! Count the total number of records available in the table:
-//!
-//! ```rust
-//! let total_records = filemaker.get_number_of_records().await?;
-//! println!("Total Records: {}", total_records);
-//! ```
-//!
-//! ### Searching Records
-//!
-//! Perform a query with search parameters and sorting:
-//!
-//! ```rust
-//! use std::collections::HashMap;
-//!
-//! let mut query = HashMap::new();
-//! query.insert("fieldName".to_string(), "example_value".to_string());
-//!
-//! let sort_fields = vec!["fieldName".to_string()];
-//! let ascending = true;
-//!
-//! let search_results = filemaker.search::<serde_json::Value>(vec![query], sort_fields, ascending).await?;
-//! println!("Search Results: {:?}", search_results);
-//! ```
-//!
-//! ### Updating Records
-//!
-//! Update a record by its ID:
-//!
-//! ```rust
-//! use serde_json::Value;
-//!
-//! let record_id = 123;
-//! let mut field_data = HashMap::new();
-//! field_data.insert("fieldName".to_string(), Value::String("new_value".to_string()));
-//!
-//! let update_result = filemaker.update_record(record_id, field_data).await?;
-//! println!("Update Result: {:?}", update_result);
-//! ```
-//!
-//! ### Deleting Records
-//!
-//! Delete a record by its ID:
-//!
-//! ```rust
-//! let record_id = 123;
-//! filemaker.delete_record(record_id).await?;
-//! println!("Record deleted successfully.");
-//! ```
-//!
-//! ### Fetching Available Layouts
-//!
-//! Retrieve a list of layouts in the specified database:
-//!
-//! ```rust
-//! let layouts = Filemaker::get_layouts("your_username", "your_password", "your_database").await?;
-//! println!("Available Layouts: {:?}", layouts);
-//! ```
-//!
-//! ### Fetching Databases
-//!
-//! Retrieve the list of databases accessible with your credentials:
-//!
-//! ```rust
-//! let databases = Filemaker::get_databases("your_username", "your_password").await?;
-//! println!("Databases: {:?}", databases);
-//! ```
-//!
-//! ### Clearing the Database
-//!
-//! Delete all records from the current database and table:
-//!
-//! ```rust
-//! filemaker.clear_database().await?;
-//! println!("All records cleared successfully.");
-//! ```
-//!
-//! ## Environment Variables
-//!
-//! The library uses the `FM_URL` environment variable to specify the base URL of the FileMaker server. You need to set this variable before using the library:
-//!
-//! ```rust
-//! std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest");
-//! ```
-//!
-//! Replace `"https://fm.example.com/fmi/data/vLatest"` with the actual URL of your FileMaker server.
-//!
-//! ## Examples
-//!
-//! This library comes with example implementations usable as references:
-//!
-//! 1. **Fetch List of Databases**: [`get_databases`](examples/get_databases.rs)
-//! 2. **Fetch Layouts from a Database**: [`filemaker_layout_fetcher`](examples/filemaker_layout_fetcher.rs)
-//! 3. **Retrieve Records**: [`main_filemaker`](examples/main_filemaker.rs)
-//! 4. **Add Single Record**: [`filemaker_single_record_adder`](examples/filemaker_single_record_adder.rs)
-//! 5. **Add Multiple Records**: [`filemaker_multiple_record_adder`](examples/filemaker_multiple_record_adder.rs)
-//! 6. **Update Database Records**: [`filemaker_record_updater`](examples/filemaker_record_updater.rs)
-//! 7. **Delete Database Records**: [`filemaker_record_deleter`](examples/filemaker_record_deleter.rs)
-//! 8. **Find Records Based on Query**: [`filemaker_search_results_output`](examples/filemaker_search_results_output.rs)
-//!
-//! ## Logging
-//!
-//! The library uses the [`log`](https://docs.rs/log/) crate for logging. To capture and display logs, set up a logging framework such as [`env_logger`](https://docs.rs/env_logger/). Example:
-//!
-//! ```rust
-//! use env_logger;
-//!
-//! fn main() {
-//!   env_logger::init();
-//! }
-//! ```
-//!
-//! ## License
-//!
-//! This library is licensed under the terms of the license detailed in the [`LICENSE`](LICENSE) file.
-//!
-//! ---
-//!
-//! For more information, please refer to the [repository documentation](https://github.com/Drew-Chase/filemaker-lib). Contributions are welcome!
+#![doc = include_str!("../README.MD")]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use base64::Engine;
 use log::*;
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::Mutex;
+
+static FM_URL: RwLock<Option<String>> = RwLock::new(None);
 
 /// Represents a single record from a database query.
 ///
@@ -321,7 +80,7 @@ pub struct DataInfo {
     /// Number of records that matched the find criteria.
     #[serde(rename = "foundCount")]
     pub found_count: u64,
-    /// Number of records actually returned in the response (may be limited by pagination).
+    /// Number of records actually returned in the response (maybe limited by pagination).
     #[serde(rename = "returnedCount")]
     pub returned_count: u64,
 }
@@ -334,7 +93,7 @@ pub struct DataInfo {
 pub struct Filemaker {
     // Name of the database to connect to
     database: String,
-    // Authentication token stored in thread-safe container that can be updated
+    // Authentication token stored in a thread-safe container that can be updated
     // Option is used since the token might not be available initially
     token: Arc<Mutex<Option<String>>>,
     // Name of the table/layout to operate on
@@ -370,7 +129,7 @@ impl Filemaker {
                 anyhow::anyhow!(e)
             })?;
 
-        // Authenticate with FileMaker and obtain a session token
+        // Authenticate with FileMaker and get a session token
         let token = Self::get_session_token(&client, database, username, password).await?;
         info!("Filemaker instance created successfully");
 
@@ -378,9 +137,79 @@ impl Filemaker {
         Ok(Self {
             database: encoded_database,
             table: encoded_table,
-            token: Arc::new(Mutex::new(Some(token))), // Wrap token in thread-safe container
+            token: Arc::new(Mutex::new(Some(token))), // Wrap token in a thread-safe container
             client,
         })
+    }
+
+    /// Sets the `FM_URL` to the specified value.
+    ///
+    /// This function accepts a URL as an input parameter and updates the globally shared `FM_URL` variable.
+    /// The provided `url` is converted to a `String` and stored in a thread-safe manner.
+    ///
+    /// # Parameters
+    /// - `url`: A value that can be converted into a `String`. This is the new URL to set for `FM_URL`.
+    ///
+    /// # Returns
+    /// - `Result<()>`: Returns `Ok(())` if the `FM_URL` was successfully updated. Returns an error
+    ///   if there was a failure when trying to acquire a write lock or setting the value.
+    ///
+    /// # Errors
+    /// This function will return an error if:
+    /// - Acquiring a write lock on the `FM_URL` variable fails. This could happen if the lock is poisoned
+    ///   or another thread panicked while holding the lock.
+    ///
+    /// # Examples
+    /// ```rust
+    /// set_fm_url("https://example.com")?;
+    /// ```
+    ///
+    /// # Debug logs
+    /// A debug log is emitted indicating the new URL being set.
+    ///
+    /// # Thread Safety
+    /// This function uses a thread-safe write lock to ensure that changes to `FM_URL` are safe in
+    /// a concurrent context.
+    pub fn set_fm_url(url: impl Into<String>) -> Result<()> {
+        let url = url.into();
+        debug!("Setting FM_URL to {}", url);
+        let mut writer = FM_URL
+            .write()
+            .map_err(|e| anyhow!("Failed to write to FM_URL: {}", e))?;
+        *writer = Some(url);
+        Ok(())
+    }
+
+    /// Retrieves the FM_URL configuration value.
+    ///
+    /// This function attempts to read the FM_URL value from a `RwLock`, ensuring
+    /// thread-safety during the read process. If the lock cannot be obtained
+    /// or the FM_URL is not set, the function will return an error.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following cases:
+    /// - If the `RwLock` cannot be read (e.g., poisoned due to a panic in another thread).
+    /// - If the FM_URL value is not set (`None`).
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(String)`: The FM_URL value as a `String` if it is successfully retrieved.
+    /// - `Err(anyhow::Error)`: An error with context if reading the FM_URL fails or if it is not set.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// match get_fm_url() {
+    ///     Ok(url) => println!("FM_URL: {}", url),
+    ///     Err(e) => eprintln!("Error retrieving FM_URL: {}", e),
+    /// }
+    /// ```
+    fn get_fm_url() -> Result<String> {
+        let rwlock =FM_URL
+            .read()
+            .map_err(|e| anyhow!("Failed to read FM_URL: {}", e))?;
+        rwlock.clone().ok_or(anyhow!("FM_URL is not set"))
     }
 
     /// Gets a session token from the FileMaker Data API.
@@ -405,10 +234,10 @@ impl Filemaker {
         // URL-encode the database name to handle spaces and special characters
         let database = Self::encode_parameter(database);
 
-        // Construct the URL for the sessions endpoint
+        // Construct the URL for the session endpoint
         let url = format!(
             "{}/databases/{}/sessions",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             database
         );
 
@@ -534,7 +363,7 @@ impl Filemaker {
         // Construct the URL for the FileMaker Data API records endpoint
         let url = format!(
             "{}/databases/{}/layouts/{}/records?_offset={}&_limit={}",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table,
             start,
@@ -580,7 +409,7 @@ impl Filemaker {
         // Construct the URL for the FileMaker Data API records endpoint
         let url = format!(
             "{}/databases/{}/layouts/{}/records",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table
         );
@@ -631,7 +460,7 @@ impl Filemaker {
         // Construct the URL for the FileMaker Data API find endpoint
         let url = format!(
             "{}/databases/{}/layouts/{}/_find",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table
         );
@@ -657,7 +486,7 @@ impl Filemaker {
         ]);
         if let Some(limit) = limit {
             body.insert("limit".to_string(), serde_json::to_value(limit)?);
-        }else{
+        } else {
             body.insert("limit".to_string(), serde_json::to_value(u32::MAX)?);
         }
         debug!("Executing search query with URL: {}. Body: {:?}", url, body);
@@ -694,7 +523,7 @@ impl Filemaker {
         // Define the URL for the FileMaker Data API endpoint
         let url = format!(
             "{}/databases/{}/layouts/{}/records",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table
         );
@@ -756,7 +585,7 @@ impl Filemaker {
         // Construct the API endpoint URL for updating a specific record
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table,
             id
@@ -790,7 +619,7 @@ impl Filemaker {
         // Construct the API endpoint URL for retrieving databases
         let url = format!(
             "{}/databases",
-            std::env::var("FM_URL").unwrap_or_default().as_str()
+            Self::get_fm_url()?
         );
 
         // Create Base64 encoded Basic auth header from username and password
@@ -865,7 +694,7 @@ impl Filemaker {
         let encoded_database = Self::encode_parameter(database);
         let url = format!(
             "{}/databases/{}/layouts",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             encoded_database
         );
 
@@ -940,7 +769,7 @@ impl Filemaker {
     {
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table,
             id
@@ -983,7 +812,7 @@ impl Filemaker {
     {
         let url = format!(
             "{}/databases/{}/layouts/{}/records/{}",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table,
             id
@@ -1018,7 +847,7 @@ impl Filemaker {
         let encoded_database = Self::encode_parameter(database);
         let url = format!(
             "{}/databases/{}",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             encoded_database
         );
 
@@ -1171,7 +1000,7 @@ impl Filemaker {
     ) -> Result<Vec<Value>> {
         let url = format!(
             "{}/databases/{}/layouts/{}/_find",
-            std::env::var("FM_URL").unwrap_or_default().as_str(),
+            Self::get_fm_url()?,
             self.database,
             self.table
         );

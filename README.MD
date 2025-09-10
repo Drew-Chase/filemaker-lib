@@ -23,7 +23,7 @@ Add `filemaker-lib` to your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-filemaker-lib = "0.1.0"
+filemaker-lib = "0.2.0"
 ```
 or using git
 
@@ -44,7 +44,7 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest"); // Replace with actual FileMaker server URL
+  Filemaker::set_fm_url("https://fm.example.com/fmi/data/vLatest")?; // Replace with actual FileMaker server URL
   let username = "your_username";
   let password = "your_password";
   let database = "your_database";
@@ -199,15 +199,20 @@ filemaker.clear_database().await?;
 println!("All records cleared successfully.");
 ```
 
-## Environment Variables
+## Setting Filemaker API URL (Version 0.1.x)
 
 The library uses the `FM_URL` environment variable to specify the base URL of the FileMaker server. You need to set this variable before using the library:
 
 ```rust
 std::env::set_var("FM_URL", "https://fm.example.com/fmi/data/vLatest");
 ```
-
 Replace `"https://fm.example.com/fmi/data/vLatest"` with the actual URL of your FileMaker server.
+
+## Setting Filemaker API URL (Version 0.2.x)
+In version 0.2.x, the library uses a new method to set the URL:
+```rust
+Filemaker::set_fm_url("https://fm.example.com/fmi/data/vLatest")?;
+```
 
 ## Examples
 
