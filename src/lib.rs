@@ -692,7 +692,14 @@ impl Filemaker {
         debug!("Fetching list of databases from URL: {}", url);
 
         // Initialize HTTP client
-        let client = Client::new();
+        let client = Client::builder()
+            .danger_accept_invalid_certs(true) // Disable SSL verification
+            .build()
+            .map_err(|e| {
+                error!("Failed to build client: {}", e);
+                anyhow::anyhow!(e)
+            })?;
+
 
         // Send request to get list of databases with authentication
         let response = client
