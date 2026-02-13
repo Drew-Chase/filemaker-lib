@@ -3,7 +3,7 @@ use anyhow::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    Filemaker::set_fm_url("https://fm.mardens.com/fmi/data/vLatest")?; // Replace with actual filemaker server url
+    Filemaker::set_fm_url("https://example.com/fmi/data/vLatest")?; // Replace with actual filemaker server url
     let username = "username";
     let password = "password";
 
